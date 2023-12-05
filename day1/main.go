@@ -88,7 +88,7 @@ func part2() {
 
 	findReplacePairs := map[string]string{
 		"oneight":   "18",
-		"nineight":  "82",
+		"nineight":  "98",
 		"eighthree": "83",
 		"fiveight":  "58",
 		"eightwo":   "82",
