@@ -6,7 +6,30 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"sync"
 )
+
+func expandSeeds(seeds []int, wg *sync.WaitGroup, ch chan []int) {
+	defer wg.Done()
+
+	var expandedSeeds []int
+
+	for i := 0; i < len(seeds); i += 2 {
+		start := seeds[i]
+		end := start + (seeds[i+1] - 1)
+
+		fmt.Printf("Processing range: %d to %d\n", start, end)
+
+		// Preallocate the expandedSeeds slice to avoid reallocations
+		expandedSeeds = make([]int, 0, end-start+1)
+
+		for j := start; j <= end; j++ {
+			expandedSeeds = append(expandedSeeds, j)
+		}
+	}
+
+	ch <- expandedSeeds
+}
 
 func adjustSeed(seed, soilStart, soilEnd, soilDiff int) (int, bool) {
 	if seed >= soilStart && seed <= soilEnd {
@@ -58,17 +81,29 @@ func main() {
 	lightToTemp = numbers[101:121]
 	tempToHumid = numbers[123:167]
 	humidToLocation = numbers[169:210]
-	fmt.Println(seedToSoil)
-	fmt.Println(soilToFert)
-	fmt.Println(fertToWater)
-	fmt.Println(waterToLight)
-	fmt.Println(lightToTemp)
-	fmt.Println(tempToHumid)
-	fmt.Println(humidToLocation)
 
 	var finalNums []int
+	numThreads := 2
 
-	for _, seed := range seeds {
+	var wg sync.WaitGroup
+	ch := make(chan []int, numThreads)
+
+	for i := 0; i < len(seeds); i += 2 {
+		wg.Add(1)
+		go expandSeeds(seeds[i:i+2], &wg, ch)
+	}
+
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	var expandedSeeds []int
+	for result := range ch {
+		expandedSeeds = append(expandedSeeds, result...)
+	}
+
+	for _, seed := range expandedSeeds {
 		val := seed
 		for _, soil := range seedToSoil {
 			soilLoc, matched := adjustSeed(seed, soil[1], soil[1]+(soil[2]-1), soil[0])
